@@ -1,0 +1,19 @@
+## Interface: 16001
+## Title: Forever Enhanced XP Bar
+## Notes: An XP bar that shows the XP waiting in finished quests, your rested XP, XP per hour and how long until your next level.
+## Author: Squirt
+## Version: 0.0.0-dev
+## SavedVariables: ForeverEnhancedXPBarDB
+## IconTexture: Interface\AddOns\ForeverEnhancedXPBar\Media\Icon.tga
+## Category: UI
+
+Core.lua
+Theme.lua
+Track.lua
+Quests.lua
+Kills.lua
+Tip.lua
+Bar.lua
+GameBar.lua
+Window.lua
+MinimapButton.lua
