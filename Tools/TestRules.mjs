@@ -1,7 +1,7 @@
 // The addon's rules, checked straight from its source: the TOC lists every Lua file once, in the harness's order; no em
 // dash anywhere; no key binding changed and no frame taking the keyboard; GameTooltip never named; no text run as code;
-// the game's frames only touched in GameBar.lua, and there only read, faded with SetAlpha and post-hooked (UpdateDividers
-// only), never the containers, the reputation bar or the vehicle bar; no key written on a game or EraUI frame or table,
+// the game's frames only touched in GameBar.lua, and there only read, faded with SetAlpha and post-hooked (the
+// containers' UpdateDividers, ApplyPendingBarToShow and UpdateShownState, and scripts), never the containers' alpha, the reputation bar or the vehicle bar; no key written on a game or EraUI frame or table,
 // GameBar's own state in weak tables; the addon's frames anchored to UIParent (and the minimap button to the minimap);
 // no CVar written, system chat never read, played time asked only behind askPlayed; every timer callback guarded;
 // chat output only through Core.lua;
@@ -142,14 +142,19 @@ test('GameTooltip never named: the addon\'s hover box is its own', async () => {
   assert.deepEqual(found, []);
 });
 
-test('no text run as code, nothing secure called, hooksecurefunc only on UpdateDividers in GameBar.lua', async () => {
+test('no text run as code, nothing secure called, hooksecurefunc only on the containers\' passes in GameBar.lua', async () => {
   const files = await addonCode();
   const pattern = /(?<![\w.:])(loadstring|load|loadfile|dofile|RunScript|RunMacroText|setfenv|getfenv|rawset|securecall|secureexecuterange|issecurevariable)\s*\(/g;
   assert.deepEqual(find(files, pattern), []);
   assert.deepEqual(find(files, /\bhooksecurefunc\b/g, name => name === 'GameBar.lua'), [], 'no hook outside GameBar.lua');
   const gameBar = await read('GameBar.lua');
   const hooks = [...gameBar.matchAll(/hooksecurefunc\s*\(([^)]*)\)/g)].map(m => m[1].replace(/\s+/g, ' '));
-  assert.deepEqual(hooks, ['container, "UpdateDividers", Update'], 'one post-hook, on the dividers being rebuilt');
+  assert.deepEqual(hooks, ['container, name, Update'], 'one post-hook call, on each container pass in CONTAINER_HOOKS');
+  const list = gameBar.match(/local CONTAINER_HOOKS = \{([^}]*)\}/);
+  assert.ok(list, 'the list of container passes');
+  assert.deepEqual([...list[1].matchAll(/"(\w+)"/g)].map(m => m[1]),
+    ['UpdateDividers', 'ApplyPendingBarToShow', 'UpdateShownState'],
+    'the dividers rebuilt, a container taking its new bar, a container showing or hiding');
 });
 
 // The game's frames and tables the addon names (and EraUI's).
@@ -192,8 +197,8 @@ test('GameBar.lua only reads the game\'s frames, fades them with SetAlpha and ho
   assert.deepEqual(found, []);
   const hooked = [...code.matchAll(/HookScript\s*\(\s*""/g)].length;
   const scripts = [...(await read('GameBar.lua')).matchAll(/HookScript\s*\(\s*"(\w+)"/g)].map(m => m[1]);
-  assert.equal(hooked, 2, 'two script hooks');
-  assert.deepEqual(scripts, ['OnShow', 'OnHide'], 'the XP bars showing and hiding');
+  assert.equal(hooked, 3, 'three script hooks');
+  assert.deepEqual(scripts, ['OnShow', 'OnHide', 'OnShow'], 'the XP bars showing and hiding, and a container showing');
   assert.deepEqual(find([{ name: 'GameBar.lua', code }], /\b(CreateFrame|EnableMouse|SetMouse\w*)\b/g), [],
     'no frames of its own, the mouse left alone');
 });

@@ -14,7 +14,10 @@ local _, F = ...
 local G = {}
 F.GameBar = G
 
-local CHECKS = { .5, 1.5, 3.5 } -- seconds after entering the world to look at EraUI again (it applies within 3)
+-- Seconds after entering the world to look again: at EraUI (it applies within 3, so from SETTLE on its own answer is
+-- trusted) and at the game's bar (which can still be settling its art after that).
+local CHECKS = { .5, 1.5, 3.5, 8 }
+local SETTLE = 3.5
 local BAND_NOTE = "EraUI's classic bar keeps the game's XP bar in its stone band, so it stays while that's on."
 local MISSING_NOTE = "The game's XP bar wasn't found."
 
@@ -56,10 +59,14 @@ local function XPBar(container)
     return type(bar) == "table" and bar or nil
 end
 
--- A container holds XP while its XP bar is shown. (Its shownBarIndex only changes after the bar's OnShow has run.)
+-- A container holds XP while its XP bar is shown, or while the game has XP shown or about to show there. (Its
+-- shownBarIndex only changes after the bar's OnShow has run; at login the bar can show before the container does.)
 local function HoldsXP(container)
     local bar = XPBar(container)
-    return bar ~= nil and Bool(bar:IsShown()) == true
+    if bar == nil then return false end
+    if Bool(bar:IsShown()) == true then return true end
+    local index = XPIndex()
+    return N(container.shownBarIndex) == index or N(container.pendingBarToShowIndex) == index
 end
 
 -- The container's frame art and its dividers in use.
@@ -83,14 +90,14 @@ local function FadeBar(bar)
     bar:SetAlpha(0)
 end
 
+-- A piece already faded that shows again is faded again (seen in game: after a /reload the frame art and all 19
+-- dividers were back at full while the XP bar stayed faded); what it had before the first fade is still what goes back.
 local function FadeArt(container)
     for _, piece in ipairs(Art(container)) do
-        if artAlpha[piece] == nil then
-            local alpha = N(piece:GetAlpha())
-            if alpha and alpha > 0 then
-                artAlpha[piece], artOwner[piece] = alpha, container
-                piece:SetAlpha(0)
-            end
+        local alpha = N(piece:GetAlpha())
+        if alpha and alpha > 0 then
+            if artAlpha[piece] == nil then artAlpha[piece], artOwner[piece] = alpha, container end
+            piece:SetAlpha(0)
         end
     end
 end
@@ -108,11 +115,45 @@ end
 
 local function Update()
     if not active then return end
-    for _, container in ipairs(Containers()) do
+    local seen = F:IsDev() and {} or nil
+    for i, container in ipairs(Containers()) do
         local bar = XPBar(container)
         if bar then FadeBar(bar) end
-        if HoldsXP(container) then FadeArt(container) else RestoreArt(container) end
+        local holds = HoldsXP(container)
+        if seen then
+            local art = container.BarFrameTexture
+            table.insert(seen, { container = i, holds = holds, shown = bar and Bool(bar:IsShown()),
+                index = N(container.shownBarIndex), art = type(art) == "table" and N(art:GetAlpha()) or nil })
+        end
+        if holds then FadeArt(container) else RestoreArt(container) end
     end
+    if seen then F:DevLog("gamebarUpdate", { t = GetTime(), containers = seen }) end
+end
+
+-- Whether any piece that should be faded shows again: the XP bars, and the art of a container holding XP.
+local function Showing()
+    for _, container in ipairs(Containers()) do
+        local bar = XPBar(container)
+        if bar and (N(bar:GetAlpha()) or 0) > 0 then return true end
+        if HoldsXP(container) then
+            for _, piece in ipairs(Art(container)) do
+                if (N(piece:GetAlpha()) or 0) > 0 then return true end
+            end
+        end
+    end
+    return false
+end
+
+-- The first seconds after a loading screen: something outside any function we can hook sets the frame art and the
+-- dividers back to full, twice (dev log, 2026-10-15). A close look every WATCH_STEP for WATCH_FOR seconds fades them
+-- again before they're seen, then stops.
+local WATCH_STEP, WATCH_FOR = .05, 10
+local watch
+local function Watch()
+    if watch then watch:Cancel() end
+    watch = C_Timer.NewTicker(WATCH_STEP, F:Guard("game bar watch", function()
+        if active and Showing() then Update() end
+    end), math.floor(WATCH_FOR / WATCH_STEP))
 end
 
 local function Restore()
@@ -124,7 +165,9 @@ local function Restore()
     active = false
 end
 
--- Post-hooks, once each: an XP bar showing or hiding (XP moving between the containers), and the dividers rebuilt.
+-- Post-hooks, once each: an XP bar showing or hiding (XP moving between the containers), the dividers rebuilt, a
+-- container showing, and a container taking its new bar (at login the game shows the bar, then the container).
+local CONTAINER_HOOKS = { "UpdateDividers", "ApplyPendingBarToShow", "UpdateShownState" }
 local function Hook()
     for _, container in ipairs(Containers()) do
         local bar = XPBar(container)
@@ -133,9 +176,12 @@ local function Hook()
             bar:HookScript("OnShow", Update)
             bar:HookScript("OnHide", Update)
         end
-        if not hooked[container] and type(container.UpdateDividers) == "function" then
+        if not hooked[container] then
             hooked[container] = true
-            hooksecurefunc(container, "UpdateDividers", Update)
+            for _, name in ipairs(CONTAINER_HOOKS) do
+                if type(container[name]) == "function" then hooksecurefunc(container, name, Update) end
+            end
+            if type(container.HookScript) == "function" then container:HookScript("OnShow", Update) end
         end
     end
 end
@@ -188,9 +234,10 @@ end
 
 local function OnEnterWorld()
     G:Apply()
-    for i, delay in ipairs(CHECKS) do
+    Watch()
+    for _, delay in ipairs(CHECKS) do
         C_Timer.After(delay, F:Guard("game bar", function()
-            if i == #CHECKS then settled = true end
+            if delay >= SETTLE then settled = true end
             G:Apply()
         end))
     end

@@ -1,4 +1,4 @@
--- GameBar.lua: hiding the game's own XP bar is off by default and touches nothing; on, it fades both XP bars, and the frame
+-- GameBar.lua: hiding the game's own XP bar is on by default; off, it touches nothing; on, it fades both XP bars, and the frame
 -- art and dividers of the container holding XP only (and only pieces still showing); follows XP between the containers
 -- and rebuilt dividers through post-hooks; puts back exactly what it changed; steps aside for EraUI's classic band (now,
 -- predicted from its settings before it applies, or arriving later) and says why; never hides, moves or writes keys on the
@@ -38,10 +38,16 @@ local function Untouched(label)
     Equal(S[c1.bars[XP]].hooked, nil, label .. ": no script hooked")
 end
 
--- Off by default ------------------------------------------------------------------------------------------------------------------
+-- On by default (the user, 2026-10-14) ---------------------------------------------------------------------------------------
 
 Fresh()
-Untouched("off by default")
+True(G:Active(), "a fresh install hides the game's bar")
+Equal(Alpha(c1.bars[XP]) .. " " .. Alpha(c2.bars[XP]), "0 0", "both XP bars faded at login")
+
+-- Off -------------------------------------------------------------------------------------------------------------------------------
+
+Fresh({ version = 1, settings = { hideGameBar = false } })
+Untouched("off")
 Equal(G:Blocked(), nil, "nothing in the way")
 
 -- On --------------------------------------------------------------------------------------------------------------------------------
@@ -56,11 +62,59 @@ True(Dividers(c2, 1), "and its dividers")
 Equal(Alpha(c1) .. " " .. Alpha(c2), "1 1", "the containers' own alpha never touched")
 Equal(Alpha(c1.bars[1]), 1, "nor the reputation bar")
 Equal(S[c1.bars[XP]].hooked.OnShow .. " " .. S[c1.bars[XP]].hooked.OnHide, "1 1", "post-hooks on the XP bars' show and hide")
-Equal(#H.hooks, 2, "and on each container's UpdateDividers")
+Equal(#H.hooks, 6, "and on each container's UpdateDividers, ApplyPendingBarToShow and UpdateShownState")
+Equal(S[c1].hooked and S[c1].hooked.OnShow, 1, "and each container's show")
 F:Set("hideGameBar", false)
 F:Set("hideGameBar", true)
 Equal(S[c1.bars[XP]].hooked.OnShow, 1, "hooked once only")
-Equal(#H.hooks, 2, "both")
+Equal(#H.hooks, 6, "all of them")
+
+-- Seen in game (2026-10-15, after a /reload): the frame art and all 19 dividers back at full while the XP bar stayed
+-- faded. Whatever puts them back, the next pass of the game's looks fades them again, and off still gives back what
+-- they had before the first fade.
+H.Blizzard(function()
+    c1.BarFrameTexture:SetAlpha(1)
+    for divider in c1.HorizontalDividersPool:EnumerateActive() do divider:SetAlpha(1) end
+end)
+Equal(Alpha(c1.BarFrameTexture), 1, "the art back at full (as in game)")
+H.Blizzard(function() c1:UpdateShownState() end)
+Equal(Alpha(c1.BarFrameTexture), 0, "the container's next pass fades it again")
+True(Dividers(c1, 0), "and its dividers")
+H.Blizzard(function() c1.BarFrameTexture:SetAlpha(1) end)
+H.Blizzard(function() c1:ApplyPendingBarToShow() end)
+Equal(Alpha(c1.BarFrameTexture), 0, "so does the container taking its bar")
+-- The game showing XP in a container before the bar itself shows (at login): its art fades already.
+F:Set("hideGameBar", false)
+H.Blizzard(function() rawset(c2, "pendingBarToShowIndex", XP) end)
+F:Set("hideGameBar", true)
+Equal(Alpha(c2.BarFrameTexture), 0, "XP about to show in the second container: its art faded too")
+H.Blizzard(function() rawset(c2, "pendingBarToShowIndex", nil) end)
+F:Set("hideGameBar", false)
+Equal(Alpha(c1.BarFrameTexture) .. " " .. Alpha(c2.BarFrameTexture), "1 1", "off: both back as they were")
+F:Set("hideGameBar", true)
+
+-- The close watch after a loading screen (dev log, 2026-10-15: the art and dividers set back to full twice in the first
+-- seconds, outside any hooked function): faded again within a step, and the watch stops after its seconds.
+Fresh()
+H.Advance(1)
+H.Blizzard(function()
+    c1.BarFrameTexture:SetAlpha(1)
+    for divider in c1.HorizontalDividersPool:EnumerateActive() do divider:SetAlpha(1) end
+end)
+H.Advance(.06)
+Equal(Alpha(c1.BarFrameTexture), 0, "art set back at full a second in: faded again within a step")
+True(Dividers(c1, 0), "and the dividers")
+H.Advance(10, .05)
+local watching = 0
+for _, timer in ipairs(H.timers) do if timer.every == .05 and not timer.cancelled then watching = watching + 1 end end
+Equal(watching, 0, "the watch stops after its seconds")
+H.Blizzard(function() c1.BarFrameTexture:SetAlpha(1) end)
+H.Advance(1)
+Equal(Alpha(c1.BarFrameTexture), 1, "after it, nothing looks every step (a later reset waits for the game's own passes)")
+H.Blizzard(function() c1:UpdateShownState() end)
+Equal(Alpha(c1.BarFrameTexture), 0, "which still fade it")
+F:Set("hideGameBar", false)
+F:Set("hideGameBar", true)
 
 -- XP moving to the second container (a faction watched).
 H.ShowXPIn(2)
@@ -105,16 +159,16 @@ F:Set("hideGameBar", false)
 Equal(Alpha(c1.BarFrameTexture), 0, "nor 'put back' to showing")
 Equal(Alpha(c2.bars[XP]), .7, "an XP bar's own alpha put back exactly")
 
--- A reset puts it back.
-Fresh({ version = 1, settings = { hideGameBar = true } })
-True(G:Active(), "on from the saved setting at login")
-Equal(Alpha(c1.bars[XP]), 0, "faded at login")
+-- A reset brings back the default: hidden (on by default since 2026-10-14).
+Fresh({ version = 1, settings = { hideGameBar = false } })
+Equal(Alpha(c1.bars[XP]), 1, "off from the saved setting at login")
 F:Reset()
-Equal(Alpha(c1.bars[XP]), 1, "a reset puts it back")
+True(G:Active(), "a reset switches it back on")
+Equal(Alpha(c1.bars[XP]), 0, "and the bar fades")
 H.printed = {}
 
 -- In a fight.
-Fresh()
+Fresh({ version = 1, settings = { hideGameBar = false } })
 H.Combat(true)
 F:Set("hideGameBar", true)
 Equal(Alpha(c1.bars[XP]), 0, "faded in a fight")

@@ -1,8 +1,9 @@
 -- The bar (showBar, questSegment, restedSegment, lineUnder, questStripes, showAtMax, border, size, width, textShow,
 -- textFormat), drawn to the user's mockup: a dark track with rounded ends (two end-cap masks on every piece, all square
 -- if the game can't give every piece both), your XP in a blue-violet to violet gradient,
--- then the XP waiting in finished quests in solid amber (or amber stripes), then how far rested XP reaches in solid light
--- blue, each clamped to the bar's end; an optional thin dark edge (two one-pixel rings, rounded too); white outlined text
+-- then the XP waiting in finished quests in a deep orange to warm gold gradient (or amber stripes), then how far rested
+-- XP reaches in a deeper blue to sky blue gradient (each flat if the game can't draw it), each clamped to the bar's end;
+-- an optional thin dark edge (two one-pixel rings, rounded too); white outlined text
 -- on it (your level at the left, your XP in the middle, your % at the right with, in brackets, your % once your finished
 -- quests are handed in; a narrow bar drops the level, then the XP, before they overlap); and a line under it with the XP
 -- in completed quests and your rested XP as shares of the level, in their parts' colours (short labels when the whole
@@ -64,6 +65,7 @@ local bar, mover, track, fill, gradient, quest, rested, edges, texts, line
 local masks = {} -- the end caps: track (the track and its parts), inner and outer (the border's rings); {} when square
 local masked = {} -- every { texture, mask } added, so they can all be taken off again
 local graded, stripesOk = false, false
+local shaded = {} -- quest and rested: true while the game draws the part's gradient, false once it can't (flat then)
 local questStyle -- "solid" or "stripes": what the quest part shows now
 local fontsFor -- the size the text was last set up for
 local hovered, placed, waiting, moving, reopen = false, false, false, false, false
@@ -202,14 +204,26 @@ local function Plate(colour, layer, sublevel)
     return texture
 end
 
--- The XP part's gradient, if the game can draw one (SetGradient with two colours from CreateColor). False leaves the XP
--- part a flat violet.
-local function Gradient(texture)
+-- A part's gradient, left to right from one theme colour to another, if the game can draw one (SetGradient with two
+-- colours from CreateColor). False (its error kept quiet) leaves the part to be painted flat: the XP part a flat violet.
+local function Gradient(texture, from, to)
     if type(CreateColor) ~= "function" or type(texture.SetGradient) ~= "function" then return false end
-    local from, to = COLOUR.xpFrom, COLOUR.xpTo
     return (pcall(function()
         texture:SetGradient("HORIZONTAL", CreateColor(from[1], from[2], from[3], 1), CreateColor(to[1], to[2], to[3], 1))
     end))
+end
+
+-- The quest or rested part (which) in its own gradient, from the theme's which .. "From" to which .. "To". Put on again
+-- at every draw, as a vertex colour wipes a gradient in the game. Once the game can't draw it, the part stays flat in
+-- its colour for the session.
+local function Shade(texture, which)
+    if shaded[which] ~= false then
+        shaded[which] = Gradient(texture, COLOUR[which .. "From"], COLOUR[which .. "To"])
+    end
+    if not shaded[which] then
+        local colour = COLOUR[which]
+        texture:SetVertexColor(colour[1], colour[2], colour[3], colour[4] or 1)
+    end
 end
 
 -- Takes every mask added off again: the whole bar is square.
@@ -331,13 +345,15 @@ local function Build()
     track:SetAllPoints()
     fill = Plate(COLOUR.xp, "ARTWORK", 1)
     gradient = Plate({ 1, 1, 1, 1 }, "ARTWORK", 1)
-    graded = Gradient(gradient)
+    graded = Gradient(gradient, COLOUR.xpFrom, COLOUR.xpTo)
     quest = Plate(COLOUR.quest, "ARTWORK", 2)
-    -- The stripes are tried once: a file the game can't load leaves the quest part plain amber whatever the tick says.
+    -- The stripes are tried once: a file the game can't load leaves the quest part its amber gradient whatever the tick says.
     stripesOk = quest:SetTexture(STRIPES, "REPEAT", "REPEAT") ~= false
     Paint(quest, COLOUR.quest)
     questStyle = "solid"
+    Shade(quest, "quest")
     rested = Plate(COLOUR.rested, "ARTWORK", 3)
+    Shade(rested, "rested")
     masks = Corners({ { "track", { track, fill, gradient, quest, rested } }, { "inner", { edges[1] } },
         { "outer", { edges[2] } } })
     texts = { NewText("LEFT"), NewText("CENTER"), NewText("RIGHT") }
@@ -377,7 +393,8 @@ local function Draw(texture, span, max, width, height, px)
     return left, size
 end
 
--- The quest part: amber stripes (when ticked and loaded) or solid amber.
+-- The quest part: amber stripes in their own colours (when ticked and loaded), or the plain texture that DrawParts gives
+-- its gradient.
 local function QuestStyle(stripes)
     local style = stripes and "stripes" or "solid"
     if style == questStyle then return end
@@ -414,9 +431,14 @@ local function DrawParts(width, height, px)
     Draw(xpPart, spans.xp, st.max, width, height, px)
     local stripes = stripesOk and F:Get("questStripes") == true
     QuestStyle(stripes)
+    -- The quest and rested parts' gradients go on again each time they're drawn (a vertex colour wipes one).
     local left, size = Draw(quest, spans.quest, st.max, width, height, px)
-    if left and stripes then quest:SetTexCoord(left / STRIPE, (left + size) / STRIPE, 0, height / STRIPE) end
-    Draw(rested, spans.rested, st.max, width, height, px)
+    if left and stripes then
+        quest:SetTexCoord(left / STRIPE, (left + size) / STRIPE, 0, height / STRIPE)
+    elseif left then
+        Shade(quest, "quest")
+    end
+    if Draw(rested, spans.rested, st.max, width, height, px) then Shade(rested, "rested") end
 end
 
 -- The text's fonts and places for a size: inside the track, or just above it for Thin; the line under the bar.
@@ -529,7 +551,7 @@ end
 -- The bar's pieces (for the tests).
 function B:Parts()
     return { track = track, fill = fill, gradient = gradient, graded = graded, quest = quest, rested = rested,
-        edges = edges, masks = masks, texts = texts, line = line, stripesOk = stripesOk }
+        edges = edges, masks = masks, texts = texts, line = line, stripesOk = stripesOk, shaded = shaded }
 end
 
 -- Placing ---------------------------------------------------------------------------------------------------------------------

@@ -157,7 +157,7 @@ local hide = window.controls.hideGameBar
 True(hide.blocked, "with EraUI's band on, hiding the game's bar is greyed")
 Equal(S[hide.label].alpha, .4, "faded")
 hide:Click()
-Equal(F:Get("hideGameBar"), false, "and a click does nothing")
+Equal(F:Get("hideGameBar"), true, "and a click does nothing (it's on by default)")
 H.Script(hide, "OnEnter")
 True(Note():find("stone band", 1, true), "the footer says why")
 H.Script(hide, "OnLeave")
@@ -165,7 +165,7 @@ H.era.active = false
 H.Advance(4)
 Equal(hide.blocked, false, "the band gone: usable again")
 hide:Click()
-Equal(F:Get("hideGameBar"), true, "and it ticks")
+Equal(F:Get("hideGameBar"), false, "and it unticks")
 
 -- A small screen: the window shrinks to fit.
 Fresh(nil, function() S[UIParent].width, S[UIParent].height = 700, 500 end)

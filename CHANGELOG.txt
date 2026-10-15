@@ -9,4 +9,5 @@
 - Hover the bar for XP this level, rested, quests done, time on this level, this session, XP per hour and when you'll level.
 - Kills and quests to level, from your last kills and hand-ins.
 - Thin, Normal, Thick or Large, any width, drag it anywhere; text always, on hover or never.
-- Optional: keep the bar at max level, and fade the game's own XP bar out.
+- The game's own XP bar fades out (on by default; untick it to bring it back).
+- Optional: keep the bar at max level.

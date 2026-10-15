@@ -12,7 +12,7 @@ An XP bar for World of Warcraft: Forever that shows what's coming as well as wha
 - 📏 **Your size and place:** Thin, Normal, Thick or Large, any width, and drag it anywhere. On first use it sits just above your bottom action bars (or above the cast bar with EraUI's classic bar, when there isn't room under it).
 - 🔤 **Text on the bar:** always, on hover or never; numbers, percent or both. A Thin bar has its text just above it. On a narrow bar your XP numbers make way first, so your level and % stay.
 - 🏆 **At max level** it can stay as a gold bar that still shows the XP waiting in finished quests.
-- 🙈 **Hide the game's own XP bar** (experimental): fades it out and puts it back the moment you untick it.
+- 🙈 **Hide the game's own XP bar** (experimental, on by default): fades it out and puts it back the moment you untick it. Another addon's XP bar is hidden in that addon's own settings.
 
 ## 💬 Commands
 

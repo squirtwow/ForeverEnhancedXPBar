@@ -18,7 +18,7 @@ and the settings window keep the first look.
 | `Quests.lua` | XP waiting in finished quests (one scan a frame), hand-ins counted, the average and quests to level. |
 | `Kills.lua` | Kill lines read with patterns built from the game's own strings; the last 20 kills' base XP; kills to level with both rested sums (`KL.MODEL`). |
 | `Tip.lua` | The addon's own hover box (never GameTooltip) and the bar's ten details. |
-| `Bar.lua` | The bar: its parts (gradient XP, solid or striped amber, solid blue), rounded corners (masks), the border, four sizes, the text on it and the line under it, the room they take (`B:Room`), hover, the right-click menu; first-run placing; Put the bar back; the mover. |
+| `Bar.lua` | The bar: its parts (gradient XP, gradient or striped amber, gradient blue), rounded corners (masks), the border, four sizes, the text on it and the line under it, the room they take (`B:Room`), hover, the right-click menu; first-run placing; Put the bar back; the mover. |
 | `GameBar.lua` | Hiding the game's own XP bar: SetAlpha and post-hooks only, put back exactly, steps aside for EraUI's classic band. |
 | `Window.lua` | `/xpbar`: pages from Core's rows, footer help, credit, blocked rows, the action buttons, Reset all settings (asks first). |
 | `MinimapButton.lua` | The minimap button (left-click settings, right-click shows or hides the bar, drag round the edge). |
@@ -132,8 +132,16 @@ numbers in amber and blue. What was built, and the choices made:
   orientation, minColor, maxColor as ColorMixin) on its own texture across the XP part. The flat fill is used for the
   gold max-level bar, the grey XP-off bar, and a flat violet (#986cf7, halfway) if CreateColor or SetGradient is missing
   or errors.
-- Quest part solid by default; **stripes kept as a choice** ("Stripes on finished-quest XP", off), recoloured to the new
-  amber. Rested solid, not see-through. Outer border ring darker (#2e2a38) for the mockup's "thin dark edge".
+- **Quest and rested gradients too** (2026-10-15, the user asked for the amber and blue to fade like the XP): quest
+  #f0821e (deeper orange) to #ffbe3c (warm gold), rested #3a7ff0 (deeper blue) to #80c4ff (sky blue), left to right,
+  not see-through. The mockup's #ffa500 and #5aa0ff (about the middle of each) stay as the flat fallback and the line's
+  colours. Same guarded SetGradient as the XP part, but put on again every time the part is drawn, since a vertex colour
+  wipes a gradient (the stripes' white tint does, going back to solid does). Given at build, so each has it before it's
+  first drawn. If the game refuses one (at build or on a later draw) that part goes flat in its colour for the session,
+  quietly.
+- Quest part not striped by default; **stripes kept as a choice** ("Stripes on finished-quest XP", off), in their own
+  two ambers with no gradient over them (a gradient tints the texture, and could only darken the stripes); unticked, the
+  gradient comes back. Outer border ring darker (#2e2a38) for the mockup's "thin dark edge".
 - **A narrow bar** keeps the texts 8 px apart at least: the % always stays; your XP goes if it would touch the %; then
   the level goes if it would touch whichever is still beside it (your XP, or the % once your XP has gone). So at the
   narrowest (200) "Level 24" still shows beside "63.2% (72.6%)". (The first build checked the level first and dropped

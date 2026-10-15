@@ -1,8 +1,8 @@
 -- The addon's look. The settings window keeps the family look (flat dark panels with thin borders, gold headings, the
--- family purple as the one accent); the bar follows the user's mockup: XP in a blue-violet to violet gradient (a flat
--- violet if the game can't draw one), solid amber for XP waiting in finished quests, solid light blue for rested, a dark
--- rounded track with a thin dark edge and white text. The hover box keeps the first mockup's palette. Every piece is
--- given its size as it's made, so nothing waits on a first refresh to have one.
+-- family purple as the one accent); the bar follows the user's mockup: XP in a blue-violet to violet gradient, XP waiting
+-- in finished quests in a deep orange to warm gold one, rested in a deeper blue to sky blue one (each flat if the game
+-- can't draw it), a dark rounded track with a thin dark edge and white text. The hover box keeps the first mockup's
+-- palette. Every piece is given its size as it's made, so nothing waits on a first refresh to have one.
 local _, F = ...
 
 local T = {}
@@ -30,10 +30,13 @@ T.C = {
 }
 T.ACCENT = F.ACCENT
 
--- The bar (the user's mockup). xp is the flat violet used when there's no gradient (halfway between its two ends).
+-- The bar (the user's mockup). Each part fades left to right from its From to its To; xp, quest and rested are the flat
+-- colours used when the game can't draw a gradient (about halfway between the two ends), quest and rested also the line's.
 T.B = {
     track = Rgb("121017"), xpFrom = Rgb("6a6af7"), xpTo = Rgb("c56ef7"), xp = Rgb("986cf7"),
-    quest = Rgb("ffa500"), rested = Rgb("5aa0ff"), max = Rgb("a8873e"), off = Rgb("5e5a68"),
+    questFrom = Rgb("f0821e"), questTo = Rgb("ffbe3c"), quest = Rgb("ffa500"),
+    restedFrom = Rgb("3a7ff0"), restedTo = Rgb("80c4ff"), rested = Rgb("5aa0ff"),
+    max = Rgb("a8873e"), off = Rgb("5e5a68"),
     edgeInner = Rgb("000000"), edgeOuter = Rgb("2e2a38"), text = Rgb("ffffff"),
 }
 

@@ -4,7 +4,7 @@
 -- calling any method but a read (Get..., Is..., Has..., Can..., Enumerate..., Num..., Does...), HookScript, or a
 -- cosmetic setter (SetText, SetTextColor, SetVertexColor, SetShadowColor). SetAlpha is allowed only on the pieces the
 -- addon may fade (the game's two XP bars, their containers' frame art and dividers), and hooksecurefunc only on a
--- container's UpdateDividers. Only Blizzard's own code, run by a test through H.Blizzard, may do more. Violations are
+-- container's UpdateDividers, ApplyPendingBarToShow and UpdateShownState. Only Blizzard's own code, run by a test through H.Blizzard, may do more. Violations are
 -- recorded even when the addon catches the error. EraUI and its classic band are sealed the same way.
 -- Secrets: H.SECRET, and typed ones from H.SecretString() / H.SecretNumber(), which type() reports as "string" /
 -- "number" as the game's secrets keep their type (so a type check can't stand in for issecretvalue). Indexing, joining,
@@ -673,6 +673,9 @@ function H.StatusSetup(opts)
             p:ReleaseAll()
             for _ = 1, (n or 20) - 1 do p:Acquire() end
         end
+        -- The game's own passes that GameBar post-hooks to look again (their work is done by ShowXPIn and the tests).
+        S[c].fields.ApplyPendingBarToShow = function() end
+        S[c].fields.UpdateShownState = function() end
         S[c].shown = false
         containers[i] = c
         H.Blizzard(function() c:UpdateDividers(20) end)
@@ -806,9 +809,11 @@ function H.Environment()
         if name then _G[name] = f end
         return f
     end
-    -- Only a container's UpdateDividers may be hooked (a post-hook: the game's code runs first).
+    -- Only a container's UpdateDividers, ApplyPendingBarToShow and UpdateShownState may be hooked (post-hooks: the
+    -- game's code runs first).
+    local HOOKABLE = { UpdateDividers = true, ApplyPendingBarToShow = true, UpdateShownState = true }
     _G.hooksecurefunc = function(t, method, fn)
-        if type(t) ~= "table" or not S[t] or not S[t].blizzard or method ~= "UpdateDividers" then
+        if type(t) ~= "table" or not S[t] or not S[t].blizzard or not HOOKABLE[method] then
             Violation("hooked " .. tostring(type(t) == "string" and t or method))
             return
         end

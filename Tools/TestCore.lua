@@ -23,10 +23,10 @@ Fresh()
 -- Defaults ------------------------------------------------------------------------------------------------------------------
 
 for _, key in ipairs({ "showBar", "questSegment", "restedSegment", "lineUnder", "border", "dXP", "dRested", "dQuests",
-    "dDone", "dLevelTime", "dSession", "dRate", "dEta", "dKills", "dToQuests", "minimap" }) do
+    "dDone", "dLevelTime", "dSession", "dRate", "dEta", "dKills", "dToQuests", "minimap", "hideGameBar" }) do
     Equal(F:Get(key), true, key .. " on by default")
 end
-for _, key in ipairs({ "questStripes", "showAtMax", "hideGameBar", "askPlayed" }) do
+for _, key in ipairs({ "questStripes", "showAtMax", "askPlayed" }) do
     Equal(F:Get(key), false, key .. " off by default")
 end
 Equal(F.ROWS.hideGameBar.tag, "experimental", "hiding the game's bar tagged experimental")

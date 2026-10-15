@@ -235,7 +235,7 @@ end
 
 -- Settings ---------------------------------------------------------------------------------------------------------------
 
-local OFF_BY_DEFAULT = { questStripes = true, showAtMax = true, hideGameBar = true, askPlayed = true }
+local OFF_BY_DEFAULT = { questStripes = true, showAtMax = true, askPlayed = true }
 F.DEFAULTS = { minimapAngle = F.MINIMAP_ANGLE }
 for key, row in pairs(F.ROWS) do
     if row.options or row.slider then

@@ -1,7 +1,8 @@
 -- Bar.lua: the bar's frame (the addon's own, under UIParent, motion only), its parts (XP in a gradient, then the XP waiting
--- in finished quests in solid amber, then rested in solid blue; each clamped to the end, an empty or sub-pixel part hidden,
--- rounded to whole pixels, as tall as the track and on its middle), a flat violet when the game has no gradient (and the
--- gradient never tinted over), the stripes as a choice (still as the part grows, plain amber if the texture won't load),
+-- in finished quests in an amber gradient, then rested in a blue one; each clamped to the end, an empty or sub-pixel part
+-- hidden, rounded to whole pixels, as tall as the track and on its middle), flat violet, amber and blue when the game has
+-- no gradient or refuses one (even later on), the XP gradient never tinted over and the other two put back on every
+-- redraw, the stripes as a choice (in their own colours, still as the part grows, the amber gradient if the texture won't load),
 -- the rounded ends (two end-cap masks on every piece, within the game's three; all square when the game can't make,
 -- add or load them, even partway), the border's two rings, the four sizes and their fonts, the text (level, XP and %;
 -- Always, On hover, Never; Numbers, Percent, Both; the bracketed % with finished quests; max level and XP off; a narrow
@@ -48,6 +49,14 @@ end
 local function Hex(c)
     return string.format("%02x%02x%02x", math.floor(c[1] * 255 + .5), math.floor(c[2] * 255 + .5), math.floor(c[3] * 255 + .5))
 end
+
+-- A texture's gradient as "orientation from to" (hex), or "none".
+local function Ends(texture)
+    local g = S[texture].gradient
+    if not g then return "none" end
+    return g[1] .. " " .. Hex({ g[2].r, g[2].g, g[2].b }) .. " " .. Hex({ g[3].r, g[3].g, g[3].b })
+end
+local AMBER, BLUE = "HORIZONTAL f0821e ffbe3c", "HORIZONTAL 3a7ff0 80c4ff"
 
 -- The three texts on the bar and the line under it, "" for one that's hidden.
 local function Words()
@@ -108,13 +117,25 @@ left, width, shown = Box(P.quest)
 Equal(left, 506, "finished quests straight after")
 Equal(width, 75, "1,860 XP")
 True(shown, "shown")
-Equal(S[P.quest].texture, FLAT, "solid by default, not striped")
-Equal(Hex(S[P.quest].tint), "ffa500", "amber")
+Equal(S[P.quest].texture, FLAT, "not striped by default: the plain white texture")
+Equal(Ends(P.quest), AMBER, "in its own gradient, deep orange to warm gold")
+Equal(S[P.quest].tint, nil, "not tinted over")
 left, width, shown = Box(P.rested)
 Equal(left, 581, "rested after the quest part")
 Equal(width, 171, "4,200 XP")
 True(shown, "shown")
-Equal(Hex(S[P.rested].tint) .. " " .. S[P.rested].tint[4], "5aa0ff 1", "solid light blue, not see-through")
+Equal(Ends(P.rested), BLUE, "in its own gradient, deeper blue to sky blue")
+local restedEnds = S[P.rested].gradient
+Equal(restedEnds[2].a .. " " .. restedEnds[3].a, "1 1", "not see-through")
+Equal(S[P.rested].texture, FLAT, "on the plain white texture")
+Equal(tostring(P.shaded.quest) .. " " .. tostring(P.shaded.rested), "true true", "the game draws both")
+-- Each flat colour (no gradient, and the line's) about halfway between its gradient's ends, so the two looks agree.
+for _, part in ipairs({ "xp", "quest", "rested" }) do
+    local flat, from, to = F.Theme.B[part], F.Theme.B[part .. "From"], F.Theme.B[part .. "To"]
+    for i = 1, 3 do
+        H.Near(flat[i] * 255, (from[i] + to[i]) / 2 * 255, 48, part .. ": its flat colour near the middle (" .. i .. ")")
+    end
+end
 Equal(Hex(S[P.track].tint), "121017", "on a dark track")
 True(S[P.gradient].sublevel < S[P.quest].sublevel and S[P.quest].sublevel < S[P.rested].sublevel, "drawn in that order")
 Equal(S[P.fill].sublevel, S[P.gradient].sublevel, "the flat XP part in the same place")
@@ -131,6 +152,23 @@ F:Set("width", 900)
 True(S[P.gradient].gradient ~= nil, "the gradient still there after a redraw")
 F:Set("width", 800)
 True(S[P.gradient].gradient ~= nil, "and after another")
+-- The quest and rested gradients survive a redraw, and go on again at every draw, so a vertex colour (anything tinting
+-- them) never leaves them flat.
+Equal(Ends(P.quest) .. " | " .. Ends(P.rested), AMBER .. " | " .. BLUE, "the quest and rested gradients after a redraw")
+for name, part in pairs({ quest = P.quest, rested = P.rested }) do
+    part:SetVertexColor(1, 0, 0, 1)
+    Equal(Ends(part), "none", name .. ": a vertex colour wipes its gradient (as in the game)")
+end
+F:Set("width", 900)
+Equal(Ends(P.quest) .. " | " .. Ends(P.rested), AMBER .. " | " .. BLUE, "both put back by the next redraw")
+True(S[P.quest].tint == nil and S[P.rested].tint == nil, "with no tint left over")
+Waiting(0)
+Equal(P.quest:IsShown(), false, "nothing waiting: the quest part hidden")
+P.quest:SetVertexColor(1, 0, 0, 1)
+Waiting(1860)
+True(P.quest:IsShown(), "something waiting again: shown")
+Equal(Ends(P.quest) .. " | " .. Ends(P.rested), AMBER .. " | " .. BLUE, "its gradient back as it shows again")
+F:Set("width", 800)
 
 -- The rounded ends: two end caps on every piece of the track (the game allows three masks a texture at most), one pair
 -- each for the border's two rings.
@@ -200,6 +238,9 @@ F:Set("questStripes", true)
 Equal(S[P.quest].texture, MEDIA .. "Stripes.tga", "Stripes on finished-quest XP: the stripes texture")
 Equal(S[P.quest].wrap .. " " .. S[P.quest].wrapV, "REPEAT REPEAT", "repeated")
 Equal(Hex(S[P.quest].tint), "ffffff", "in its own colours")
+Equal(Ends(P.quest), "none", "with no gradient over them")
+True(P.quest:IsShown(), "the stripes shown")
+Equal(Ends(P.rested), BLUE, "rested keeps its gradient")
 local coords = S[P.quest].texCoord
 Equal(coords[1] * 16, 506, "from the part's own pixels (left), so they stay still as it grows")
 Equal(coords[2] * 16, 581, "(right)")
@@ -208,8 +249,12 @@ Equal(coords[4] * 16, 34, "(bottom: the bar's height)")
 Waiting(3000)
 coords = S[P.quest].texCoord
 Equal(coords[1] * 16, 506, "the stripes start where they did")
+Equal(S[P.quest].texture .. " " .. Hex(S[P.quest].tint) .. " " .. Ends(P.quest), MEDIA .. "Stripes.tga ffffff none",
+    "still the stripes in their own colours after a redraw")
+True(P.quest:IsShown(), "and still shown")
 F:Set("questStripes", false)
-Equal(S[P.quest].texture .. " " .. Hex(S[P.quest].tint), FLAT .. " ffa500", "unticked: solid amber again")
+Equal(S[P.quest].texture .. " " .. Ends(P.quest), FLAT .. " " .. AMBER, "unticked: the amber gradient again")
+Equal(S[P.quest].tint, nil, "with no tint over it")
 Equal(table.concat(S[P.quest].texCoord, ","), "0,1,0,1", "the whole texture")
 Equal(#(S[P.quest].masks or {}), 2, "still rounded")
 
@@ -255,26 +300,58 @@ Equal(B.Pixels({ 3, 7 }, 10000, 1000, 1), nil, "0.4 px across a pixel's edge: st
 l, w = B.Pixels({ 3, 9 }, 10000, 1000, 1)
 Equal(l .. " " .. w, "0 1", "0.6 px: shown, a whole pixel")
 
--- Plain amber when the stripes won't load, whatever the tick says.
+-- The plain amber gradient when the stripes won't load, whatever the tick says.
 Fresh("placed", function() H.missingFiles[MEDIA .. "Stripes.tga"] = true end)
 Equal(P.stripesOk, false, "the stripes didn't load")
 F:Set("questStripes", true)
 Waiting(1860)
-Equal(S[P.quest].texture .. " " .. Hex(S[P.quest].tint), FLAT .. " ffa500", "plain amber instead")
+Equal(S[P.quest].texture .. " " .. Ends(P.quest), FLAT .. " " .. AMBER, "the amber gradient instead")
 True(P.quest:IsShown(), "and shown")
 
--- A flat violet when the game can't draw a gradient.
+-- Each part is given its gradient as it's made, before anything is drawn on it.
+Fresh("placed", function() H.p.rested = nil end)
+True(not P.quest:IsShown() and not P.rested:IsShown(), "nothing waiting and no rested XP: neither part shown")
+Equal(Ends(P.quest) .. " | " .. Ends(P.rested), AMBER .. " | " .. BLUE, "yet each has its gradient from the start")
+
+-- Flat violet, amber and blue when the game can't draw a gradient.
+-- The quest and rested parts flat in their colours (shown, no gradient), after a few redraws.
+local function FlatParts(label)
+    Waiting(1860)
+    F:Set("width", 900)
+    F:Set("width", 800)
+    True(P.quest:IsShown() and P.rested:IsShown(), label .. ": the quest and rested parts shown")
+    Equal(Ends(P.quest) .. " " .. Ends(P.rested), "none none", label .. ": with no gradient")
+    Equal(Hex(S[P.quest].tint) .. " " .. Hex(S[P.rested].tint), "ffa500 5aa0ff", label .. ": flat amber and blue")
+    Equal(S[P.quest].tint[4] .. " " .. S[P.rested].tint[4], "1 1", label .. ": not see-through")
+    Equal(H.Problems(), "", label .. ": and nothing went wrong")
+end
 Fresh("placed", function() _G.CreateColor = nil end)
 Equal(P.graded, false, "no CreateColor: no gradient")
+Equal(tostring(P.shaded.quest) .. " " .. tostring(P.shaded.rested), "false false", "for any part")
 Equal(P.gradient:IsShown(), false, "the gradient part hidden")
 left, width, shown = Box(P.fill)
 True(left == 0 and width == 506 and shown, "the flat XP part in its place")
 Equal(Hex(S[P.fill].tint), "986cf7", "a flat violet, halfway between the gradient's ends")
 Equal(H.Problems(), "", "and nothing went wrong")
+FlatParts("no CreateColor")
 Fresh("placed", function() _G.CreateColor = function() return nil end end)
 Equal(P.graded, false, "SetGradient refusing the colours: no gradient")
 True(P.fill:IsShown() and not P.gradient:IsShown(), "the flat violet instead")
 Equal(H.Problems(), "", "and its error kept quiet")
+FlatParts("SetGradient refusing")
+-- The game drawing the gradients at first, then refusing them on a later redraw: flat from then on, quietly, even once
+-- it would draw them again. The XP part's gradient, put on once, stays.
+Fresh("placed")
+Waiting(1860)
+Equal(Ends(P.quest) .. " | " .. Ends(P.rested), AMBER .. " | " .. BLUE, "drawn at first")
+local setGradient = H.Proto.SetGradient
+H.Proto.SetGradient = function() error("SetGradient refused", 2) end
+FlatParts("SetGradient refusing later")
+Equal(tostring(P.shaded.quest) .. " " .. tostring(P.shaded.rested), "false false", "given up on for the session")
+H.Proto.SetGradient = setGradient
+FlatParts("SetGradient working again")
+Equal(Ends(P.gradient), "HORIZONTAL 6a6af7 c56ef7", "the XP gradient untouched")
+True(P.gradient:IsShown(), "and shown")
 
 -- Square corners when the game can't make masks, or can't add them all: all or nothing, the whole bar square.
 local function AllSquare(label)
@@ -509,12 +586,15 @@ Equal(words[1] .. " | " .. words[2] .. " | " .. words[3] .. " | " .. words[4], "
 Equal(P.gradient:IsShown(), false, "no gradient")
 True(P.fill:IsShown(), "a flat fill")
 Equal(Hex(S[P.fill].tint), "5e5a68", "in grey")
+Equal(Ends(P.fill), "none", "flat grey, no gradient")
 Equal(P.quest:IsShown(), false, "no quest part")
 Equal(P.rested:IsShown(), false, "and no rested part, though there's rested XP and room")
 H.p.off = false
 H.Fire("ENABLE_XP_GAIN")
 H.Frame()
 True(P.gradient:IsShown() and not P.fill:IsShown(), "XP back on: the gradient again")
+True(P.quest:IsShown() and P.rested:IsShown(), "the quest and rested parts back")
+Equal(Ends(P.quest) .. " | " .. Ends(P.rested), AMBER .. " | " .. BLUE, "in their gradients")
 
 -- Max level.
 Fresh("placed", function() H.p.level, H.p.xp, H.p.max = 30, 0, 22200 end)
@@ -525,6 +605,7 @@ local fl, fw = Box(P.fill)
 Equal(fl, 0, "from the start")
 Equal(fw, 800, "full")
 Equal(Hex(S[P.fill].tint), "a8873e", "and gold")
+Equal(Ends(P.fill), "none", "flat gold, no gradient")
 Equal(P.gradient:IsShown(), false, "not the gradient")
 words = Words()
 Equal(words[1] .. " | " .. words[2] .. " | " .. words[3] .. " | " .. words[4], "Level 30 | Max level |  | ", "Level 30, max level")
@@ -737,7 +818,8 @@ True(H.Text(box.values[5]) ~= seconds, "the times tick on while it's up")
 H.Script(bar, "OnLeave")
 Equal(box:IsShown(), false, "gone on leave")
 local tickers = 0
-for _, timer in ipairs(H.timers) do if timer.every and not timer.cancelled then tickers = tickers + 1 end end
+-- (The hover box ticks every second; GameBar's short watch after a loading screen ticks every 0.05 s on its own.)
+for _, timer in ipairs(H.timers) do if timer.every == 1 and not timer.cancelled then tickers = tickers + 1 end end
 Equal(tickers, 0, "and its ticker stopped")
 H.Script(bar, "OnEnter")
 F:Set("showBar", false)
