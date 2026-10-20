@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 ### Added
-- First version: an XP bar with the XP waiting in finished quests and your rested XP on it.
+- An XP bar with the XP waiting in finished quests and your rested XP on it.
 - Your level, XP and % on the bar, plus your % once your finished quests are handed in.
 - A line under the bar with your completed quests and rested XP as a share of the level.
 - Hover the bar for XP this level, rested, quests done, time on this level, this session, XP per hour and when you'll level.
