@@ -95,12 +95,12 @@ test('the TOC: the right fields, and every Lua file once, in the harness\'s orde
   assert.match(toc, /^## Author: Squirt\r?$/m);
   assert.match(toc, /^## SavedVariables: ForeverEnhancedXPBarDB\r?$/m);
   assert.match(toc, /^## Category: UI\r?$/m);
-  // No version number until the user approves a release: 0.0.0-dev with an "Unreleased" changelog section until then.
-  const version = toc.match(/^## Version: (\d+\.\d+\.\d+|0\.0\.0-dev)\r?$/m);
-  assert.ok(version, 'a version, or the dev placeholder');
-  const section = version[1] === '0.0.0-dev' ? 'Unreleased' : version[1].replace(/\./g, '\\.');
-  assert.match(await read('CHANGELOG.txt'), new RegExp('^## ' + section + '\\r?$', 'm'),
-    'the changelog has an entry for the TOC version (Unreleased for the dev placeholder)');
+  // The version comes from the release tag (CurseForge's packager fills in
+  // @project-version@), so the changelog's newest entry is a version number,
+  // or "Unreleased" until the user approves one.
+  assert.match(toc, /^## Version: @project-version@\r?$/m, 'the version is the tag\'s');
+  assert.match(await read('CHANGELOG.txt'), /^# Changelog\r?\n\r?\n## (\d+\.\d+\.\d+|Unreleased)\r?$/m,
+    'the changelog starts with a version number, or Unreleased');
   const icon = toc.match(/^## IconTexture: Interface\\AddOns\\ForeverEnhancedXPBar\\(.+?)\r?$/m);
   assert.ok(icon, 'an icon');
   assert.ok((await stat(new URL(icon[1].replace(/\\/g, '/'), root))).isFile(), 'and its file is there');

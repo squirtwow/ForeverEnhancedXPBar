@@ -2,7 +2,7 @@
 ## Title: Forever Enhanced XP Bar
 ## Notes: An XP bar that shows the XP waiting in finished quests, your rested XP, XP per hour and how long until your next level.
 ## Author: Squirt
-## Version: 0.0.0-dev
+## Version: @project-version@
 ## SavedVariables: ForeverEnhancedXPBarDB
 ## IconTexture: Interface\AddOns\ForeverEnhancedXPBar\Media\Icon.tga
 ## Category: UI

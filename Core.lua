@@ -95,7 +95,9 @@ local EXPERIMENTAL = "experimental"
 F.EXPERIMENTAL = EXPERIMENTAL
 F.SIZES = { thin = 10, normal = 18, thick = 26, large = 34 }
 F.WIDTH = { 200, 4000, 10 } -- the width slider: from, to (the screen's width caps it), step
-F.MINIMAP_ANGLE = 340
+-- The minimap button's default spot (degrees anticlockwise from the right), its place in the family's shared layout,
+-- clear of Squirt's other addons' buttons. Only a default: an angle the player dragged to is saved and always wins.
+F.MINIMAP_ANGLE = 341
 
 F.PAGES = {
     { key = "bar", label = "The bar", about = "What the bar shows, its size and place, and the text on it." },

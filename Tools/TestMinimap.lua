@@ -1,8 +1,8 @@
 -- The minimap button (MinimapButton.lua): made at login, named, on the minimap in the family's look with the logo's
--- emblem at its own free angle (340); left-click opening and closing the settings, right-click showing and hiding the
--- bar, a click just after a drag ignored; dragged round the edge and saved once let go; its own hover box (level, how
--- far, how long to the next, the clicks); hidden by its tick or /xpbar minimap and back after a reset; and the minimap
--- only read and hooked.
+-- emblem at its default angle in the family's layout (341); left-click opening and closing the settings, right-click
+-- showing and hiding the bar, a click just after a drag ignored; dragged round the edge and saved once let go; a saved
+-- angle kept over the default (the old default 340 included); its own hover box (level, how far, how long to the next,
+-- the clicks); hidden by its tick or /xpbar minimap and back after a reset; and the minimap only read and hooked.
 -- Run with fengari: Tools/TestMinimap.lua
 local H = assert(loadfile("Tools/Harness.lua"))()
 local S, Equal, True, Near = H.S, H.Equal, H.True, H.Near
@@ -26,8 +26,8 @@ Equal(S[button].width .. "x" .. S[button].height, "32x32", "a 32 px button")
 Equal(S[button].parent, Minimap, "on the minimap")
 True(S[button.icon].texture:find("MinimapIcon.tga", 1, true), "with the logo's emblem")
 local p = S[button].points[1]
-local a = math.rad(340)
-Near(p[4], math.cos(a) * 74, .01, "at 340 degrees round the edge (x)")
+local a = math.rad(341)
+Near(p[4], math.cos(a) * 74, .01, "at 341 degrees round the edge (x)")
 Near(p[5], math.sin(a) * 74, .01, "(y)")
 H.Fire("PLAYER_ENTERING_WORLD", true, false)
 H.Frame()
@@ -51,7 +51,7 @@ H.Script(button, "OnDragStart")
 H.Script(button, "OnUpdate", .01)
 p = S[button].points[1]
 Near(p[4], -74, .01, "follows the cursor round the edge while dragging")
-Equal(F:Get("minimapAngle"), 340, "not saved until let go")
+Equal(F:Get("minimapAngle"), 341, "not saved until let go")
 H.Script(button, "OnDragStop")
 Equal(F:Get("minimapAngle"), 180, "saved where it was let go")
 button:Click("LeftButton")
@@ -82,8 +82,19 @@ F:Set("minimap", false)
 Equal(button:IsShown(), false, "the Extras tick hides it")
 F:Reset()
 True(button:IsShown(), "a reset brings it back")
-Equal(F:Get("minimapAngle"), 340, "at its own spot")
+Equal(F:Get("minimapAngle"), 341, "at its own spot")
 H.printed = {}
+
+-- A saved angle keeps winning over the default (a spot dragged to before the default moved stays put).
+for _, saved in ipairs({ 200, 340 }) do
+    Fresh({ version = 1, spot = { x = 0, y = -300 }, settings = { minimapAngle = saved } })
+    Equal(F:Get("minimapAngle"), saved, "a saved " .. saved .. " kept")
+    Equal(ForeverEnhancedXPBarDB.settings.minimapAngle, saved, "and still stored")
+    p = S[button].points[1]
+    a = math.rad(saved)
+    Near(p[4], math.cos(a) * 74, .01, "placed at " .. saved .. " (x)")
+    Near(p[5], math.sin(a) * 74, .01, "(y)")
+end
 
 -- At max level.
 Fresh()
